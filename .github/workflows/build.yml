@@ -1,0 +1,63 @@
+name: Build and Release
+
+on:
+    push:
+        branches:
+            - '**'
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        name: Build and Create Release
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 'latest'
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'pnpm'
+
+            - name: Install dependencies
+              run: |
+                  if [ -f "pnpm-lock.yaml" ]; then
+                    pnpm install --frozen-lockfile
+                  else
+                    pnpm install
+                  fi
+
+            - name: Build project
+              run: |
+                  pnpm build
+                  if [ ! -d "dist" ]; then
+                    exit 1
+                  fi
+
+            - name: Create release zip
+              run: |
+                  mkdir -p release-build
+                  cp -r dist release-build/
+                  cd release-build
+                  zip -r ../release.zip .
+                  cd ..
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.ref_name }}
+                  name: Release ${{ github.ref_name }}
+                  draft: false
+                  prerelease: false
+                  files: release.zip
+                  body: |
+                      ## [@ovftank](https://t.me/ovftank)
